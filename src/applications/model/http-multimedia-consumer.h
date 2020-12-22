@@ -178,7 +178,16 @@ protected:
                 std::vector<std::string> /*DependencyIds*/> m_playerTracer;
 
 
+  double CalcQoE(unsigned int segmentNr, std::string representationId, unsigned int segmentExperiencedBitrate, unsigned int stallingTime, unsigned int bufferLevel);
+  double RepresentationId (std::string repId);
 
+  double sum_video_quality;
+  double sum_switch_quality;
+  double sum_stall;
+  double sum_qoe;
+
+  std::string representationId_1;
+  double video_quality_1;
 };
 
 

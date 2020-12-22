@@ -26,6 +26,9 @@
 #include "ns3/core-module.h"
 #include "ns3/trace-source-accessor.h"
 
+#include <map>
+
+
 
 NS_LOG_COMPONENT_DEFINE("MultimediaConsumer");
 
@@ -124,8 +127,6 @@ void MultimediaConsumer<Parent>::StartApplication() // Called at time specified 
         std::string new_url = m_mpdUrl.substr(7);
         // now find the next / to extract the hostname
         int pos = new_url.find("/");
-        // std::cout << new_url.substr(0, pos) << std::endl;
-        // std::cout << super::getServerTableList(super::node_ipv4str) << std::endl;
 
         // std::string hostname = new_url.substr(0, pos);
         std::string hostname = super::getServerTableList(super::node_ipv4str);
@@ -150,6 +151,12 @@ void MultimediaConsumer<Parent>::StartApplication() // Called at time specified 
     ns3::SystemPath::MakeDirectories(m_tempDir);
 
     m_tempMpdFile = m_tempDir + "/mpd.xml.gz";
+
+    sum_video_quality = 0;
+    sum_switch_quality = 0;
+    sum_stall = 0;
+    video_quality_1 = 0;
+    sum_qoe = 0;
 
     m_mpdParsed                = false;
     m_initSegmentIsGlobal      = false;
@@ -203,7 +210,6 @@ void MultimediaConsumer<Parent>::StopApplication() // Called at time specified b
         if(mpd != NULL && mPlayer != NULL) {
             //first consume everything from buffer
             while(consume() > 0.0);
-
             //ok check how many segments we have not consumed
             while(totalConsumedSegments < mPlayer->GetAdaptationLogic()->getTotalSegments()) {
                 m_playerTracer(this, m_userId, totalConsumedSegments++, "0", 0, 0, 0, std::vector<std::string>());
@@ -509,6 +515,7 @@ void MultimediaConsumer<Parent>::OnMpdFile()
         ScheduleDownloadOfInitSegment();
     }
 
+    std::cout << "/* message */ 3" << '\n';
     // we received the MDP, so we can now start the timer for playing
     SchedulePlay(startupDelay);
 
@@ -572,6 +579,8 @@ void MultimediaConsumer<Parent>::OnMultimediaFile()
 template<class Parent>
 void MultimediaConsumer<Parent>::OnFileReceived(unsigned status, unsigned length)
 {
+
+  std::cout << "ENTROU ***************" << std::endl;
   // make sure that the file is being properly retrieved by the super class first!
   super::OnFileReceived(status, length);
 
@@ -648,6 +657,12 @@ void MultimediaConsumer<Parent>::DownloadSegment()
         return;
     }
 
+    // dash::player::MultimediaBuffer::BufferRepresentationEntry entry = mPlayer->ConsumeFromBuffer();
+
+    // CalcQoE(entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
+    //   freezeTime, (unsigned int) (mPlayer->GetBufferLevel()));
+    // getchar();
+
     super::StopApplication();
     super::SetAttribute("FileToRequest", StringValue(m_baseURL + requestedSegmentURL->GetMediaURI()));
     super::SetAttribute("WriteOutfile", StringValue(""));
@@ -657,49 +672,50 @@ void MultimediaConsumer<Parent>::DownloadSegment()
 template<class Parent>
 void MultimediaConsumer<Parent>::SchedulePlay(double wait_time)
 {
-    m_consumerLoopTimer.Cancel();
-    m_consumerLoopTimer = Simulator::Schedule(Seconds(wait_time), &MultimediaConsumer<Parent>::DoPlay, this);
+  m_consumerLoopTimer.Cancel();
+  m_consumerLoopTimer = Simulator::Schedule(Seconds(wait_time), &MultimediaConsumer<Parent>::DoPlay, this);
 }
 
 template<class Parent>
 void MultimediaConsumer<Parent>::DoPlay()
 {
-    double consumed_sec = consume();
+  double consumed_sec = consume();
 
-    if(consumed_sec > 0) // we play
-    {
-        SchedulePlay(consumed_sec);
-    }
-    else if(consumed_sec == 0.0 && m_hasDownloadedAllSegments)
-    {
-        //we finished streaming just return
-        return;
-    }
-    else //we stall
-    {
-        //restart timer
-        SchedulePlay(); // with default parm.
+  if(consumed_sec > 0) // we play
+  {
+    SchedulePlay(consumed_sec);
+  }
+  else if(consumed_sec == 0.0 && m_hasDownloadedAllSegments)
+  {
+    //we finished streaming just return
+    return;
+  }
+  else //we stall
+  {
+    //restart timer
+    SchedulePlay(); // with default parm.
 
-        //check if we should abort the download
-        if(requestedRepresentation != NULL && !m_hasDownloadedAllSegments && requestedRepresentation->GetDependencyId().size() > 0) // means we are downloading something with dependencies
-        {
-            //check buffer state
-            if(!mPlayer->GetAdaptationLogic()->hasMinBufferLevel(requestedRepresentation))
-            {
-                //abort download ...
-                NS_LOG_DEBUG("Aborting to download a segment with repId = " << requestedRepresentation->GetId().c_str());
-                super::StopApplication();
-                mPlayer->SetLastDownloadBitRate(0.0);//set dl_bitrate to zero.
-                ScheduleDownloadOfSegment();
-            }
-        }
+    //check if we should abort the download
+    if(requestedRepresentation != NULL && !m_hasDownloadedAllSegments && requestedRepresentation->GetDependencyId().size() > 0) // means we are downloading something with dependencies
+    {
+      //check buffer state
+      if(!mPlayer->GetAdaptationLogic()->hasMinBufferLevel(requestedRepresentation))
+      {
+        //abort download ...
+        NS_LOG_DEBUG("Aborting to download a segment with repId = " << requestedRepresentation->GetId().c_str());
+        super::StopApplication();
+        mPlayer->SetLastDownloadBitRate(0.0);//set dl_bitrate to zero.
+        ScheduleDownloadOfSegment();
+      }
     }
+  }
 }
 
 template<class Parent>
 double MultimediaConsumer<Parent>::consume()
 {
     unsigned int buffer_level = mPlayer->GetBufferLevel();
+
 
     // did we finish streaming yet?
     if (buffer_level == 0 && m_hasDownloadedAllSegments == true)
@@ -710,6 +726,7 @@ double MultimediaConsumer<Parent>::consume()
 
     dash::player::MultimediaBuffer::BufferRepresentationEntry entry = mPlayer->ConsumeFromBuffer();
     double consumedSeconds = entry.segmentDuration;
+
     if ( consumedSeconds > 0)
     {
         NS_LOG_DEBUG("Cur Buffer Level = " << buffer_level << ", Consumed Segment " << entry.segmentNumber << ", with Rep " << entry.repId << " for " << entry.segmentDuration << " seconds");
@@ -736,11 +753,13 @@ double MultimediaConsumer<Parent>::consume()
         m_playerTracer(this, m_userId, entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
         freezeTime, (unsigned int) (mPlayer->GetBufferLevel()), entry.depIds);
 
+
         totalConsumedSegments++;
         return consumedSeconds;
     }
     else
     {
+
         // could not consume, means buffer is empty
         if (m_freezeStartTime == 0 && m_hasStartedPlaying == true)
         {
@@ -753,6 +772,68 @@ double MultimediaConsumer<Parent>::consume()
         return 0.0; // default parameter
     }
 }
+
+//=======================================================================================
+// QoE Module
+//=======================================================================================
+
+  // std::cout << entry.segmentNumber << " " << entry.repId << " "
+  // << entry.experienced_bitrate_bit_s << " " << (unsigned int) (mPlayer->GetBufferLevel()) << '\n';
+  // CalcQoE(entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
+  //   0, (unsigned int) (mPlayer->GetBufferLevel()));
+  // getchar();
+
+template<class Parent>
+double MultimediaConsumer<Parent>::RepresentationId (std::string repId)
+{
+  double result;
+
+  if(repId == "1")
+    result = 235000;
+  if(repId == "2")
+    result = 385000;
+  if(repId == "3")
+    result = 560000;
+  if(repId == "4")
+    result = 750000;
+  if(repId == "10")
+    result = 1050000;
+  if(repId == "11")
+    result = 1750000;
+  if(repId == "20")
+    result = 3000000;
+  if(repId == "21")
+    result = 2350000;
+  if(repId == "30")
+    result = 4300000;
+  if(repId == "31")
+    result = 5800000;
+
+    return result;
+}
+
+template<class Parent>
+double MultimediaConsumer<Parent>::CalcQoE(unsigned int segmentNr, std::string representationId, unsigned int segmentExperiencedBitrate, unsigned int stallingTime, unsigned int bufferLevel)
+{
+  double video_quality = RepresentationId(representationId)/5800000;
+
+  sum_video_quality += video_quality;
+
+  if(video_quality_1 != 0)
+    sum_switch_quality += video_quality - video_quality_1 ;
+
+  sum_stall += stallingTime;
+
+  sum_qoe += sum_video_quality/(segmentNr+1) + sum_switch_quality/(segmentNr) + sum_stall/(segmentNr+1);
+
+  video_quality_1 = video_quality;
+
+  std::cout << "segmentNr=" << segmentNr << " sum_qoe=" << sum_qoe << std::endl;
+  // if (segmentNr > 10 && ) {
+  // }
+  return 0.0;
+}
+
 
 
 } // namespace ns3
