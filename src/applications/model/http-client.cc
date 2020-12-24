@@ -218,8 +218,8 @@ void HttpClientApplication::TryEstablishConnection (void)
     m_socket->SetCloseCallbacks (MakeCallback (&HttpClientApplication::ConnectionClosedNormal, this),
                           MakeCallback (&HttpClientApplication::ConnectionClosedError, this));
 
-    m_socket->TraceConnectWithoutContext ("State",
-    MakeCallback(&HttpClientApplication::LogStateChange, this));
+    // m_socket->TraceConnectWithoutContext ("State",
+    //     MakeCallback(&HttpClientApplication::LogStateChange, this));
 
     // UNCOMMENT in case you want CWND tracing on client (not really needed, you do not trace the CWND on the client)
     /*
@@ -227,7 +227,7 @@ void HttpClientApplication::TryEstablishConnection (void)
     MakeCallback(&HttpClientApplication::LogCwndChange, this));
     */
 
-    fprintf(stderr, "Waiting for reply from server...\n");
+    // fprintf(stderr, "Waiting for reply from server...\n");
 
   } else {
     fprintf(stderr, "Keeping connection alive...\n");
@@ -259,7 +259,7 @@ HttpClientApplication::StartApplication (void)
     fclose(fp);
   }
 
-  fprintf(stderr, "Establishing connection (time=%f)...\n",Simulator::Now().GetSeconds());
+  // fprintf(stderr, "Establishing connection (time=%f)...\n",Simulator::Now().GetSeconds());
   AgentTryEstablishConnection();
   TryEstablishConnection();
 
@@ -332,7 +332,7 @@ HttpClientApplication::StopApplication ()
 
   if (m_socket != 0 && !m_keepAlive)
   {
-    fprintf(stderr, "Client(%d): Socket is still open, closing it...\n", node_id);
+    // fprintf(stderr, "Client(%d): Socket is still open, closing it...\n", node_id);
     m_socket->Close ();
     m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
     m_socket = 0;
@@ -373,7 +373,7 @@ void
 HttpClientApplication::OnReadySend (Ptr<Socket> localSocket, uint32_t txSpace)
 {
   NS_LOG_FUNCTION (this);
-  fprintf(stderr, "HttpClientApp::OnReadySend()\n");
+  // fprintf(stderr, "HttpClientApp::OnReadySend()\n");
   if (!m_sentGetRequest) {
     m_sentGetRequest = true;
     DoSendGetRequest(localSocket, txSpace);
@@ -446,85 +446,85 @@ void HttpClientApplication::CancelDownload()
 
 uint32_t HttpClientApplication::ParseResponseHeader(const uint8_t* buffer, size_t len, int* realStatusCode, unsigned int* contentLength)
 {
-    /*
-    HTTP/1.1 200 OKCRLF
-    Content-Type: text/xml; charset=utf-8CRLF
-    Content-Length: {len}CRLFCRLF;
-    */
+  /*
+  HTTP/1.1 200 OKCRLF
+  Content-Type: text/xml; charset=utf-8CRLF
+  Content-Length: {len}CRLFCRLF;
+  */
 
-    fprintf(stderr, "Client(%d): Parsing Response Header of length %ld\n", node_id, len);
-    const char* strbuffer = (const char*) buffer;
+  fprintf(stderr, "Client(%d): Parsing Response Header of length %ld\n", node_id, len);
+  const char* strbuffer = (const char*) buffer;
 
-    //fprintf(stderr, "header=\n%s\n", buffer);
+  //fprintf(stderr, "header=\n%s\n", buffer);
 
-    // should start with a HTTP response
-    if (strncmp(strbuffer, "HTTP/1.1",8) == 0) {
-        const char* statusCode = &strbuffer[9];
-        // find next space
-        char needle[2];
-        needle[0] = ' ';
-        needle[1] = '\0';
-        const char *p = strstr(statusCode, (const char*)needle);
+  // should start with a HTTP response
+  if (strncmp(strbuffer, "HTTP/1.1",8) == 0) {
+    const char* statusCode = &strbuffer[9];
+    // find next space
+    char needle[2];
+    needle[0] = ' ';
+    needle[1] = '\0';
+    const char *p = strstr(statusCode, (const char*)needle);
+    if (p) {
+      int pos = p - statusCode;
+
+      char actualStatusCode[4];
+
+      strncpy(actualStatusCode, statusCode,pos);
+      actualStatusCode[3] = '\0';
+
+      int iStatusCode = atoi(actualStatusCode);
+
+      if (iStatusCode == 404) {
+        fprintf(stderr, "Client(%d): ParseHeader: Status Code 404, not found!\n", node_id);
+      } else {
+        // find Content-Length
+        char needle2[17];
+        strcpy(needle2, "Content-Length: ");
+        needle2[16] = '\0';
+        p = strstr(statusCode, needle2);
+
         if (p) {
-            int pos = p - statusCode;
+          const char* strContentLength = &statusCode[p-statusCode+16];
 
-            char actualStatusCode[4];
+          p = strstr(strContentLength, "\r\n");
+          if (p) {
+            pos = p - strContentLength;
+            char actualContentLength[12];
+            strncpy(actualContentLength,strContentLength,pos);
+            unsigned int iActualContentLength = atoi(actualContentLength);
 
-            strncpy(actualStatusCode, statusCode,pos);
-            actualStatusCode[3] = '\0';
+            // find the end of the header, where the body content begins
+            p = strstr(strbuffer, "\r\n\r\n");
 
-            int iStatusCode = atoi(actualStatusCode);
+            if (p) {
+              // done!
+              *realStatusCode = iStatusCode;
+              *contentLength = iActualContentLength;
 
-            if (iStatusCode == 404) {
-                fprintf(stderr, "Client(%d): ParseHeader: Status Code 404, not found!\n", node_id);
+              pos = p - strbuffer;
+              return pos+4; // +4 to skip CRLFCRLF
             } else {
-                // find Content-Length
-                char needle2[17];
-                strcpy(needle2, "Content-Length: ");
-                needle2[16] = '\0';
-                p = strstr(statusCode, needle2);
-
-                if (p) {
-                    const char* strContentLength = &statusCode[p-statusCode+16];
-
-                    p = strstr(strContentLength, "\r\n");
-                    if (p) {
-                        pos = p - strContentLength;
-                        char actualContentLength[12];
-                        strncpy(actualContentLength,strContentLength,pos);
-                        unsigned int iActualContentLength = atoi(actualContentLength);
-
-                        // find the end of the header, where the body content begins
-                        p = strstr(strbuffer, "\r\n\r\n");
-
-                        if (p) {
-                            // done!
-                            *realStatusCode = iStatusCode;
-                            *contentLength = iActualContentLength;
-
-                            pos = p - strbuffer;
-                            return pos+4; // +4 to skip CRLFCRLF
-                        } else {
-                            fprintf(stderr, "ERROR: could not find where body begins\n");
-                        }
-                    } else {
-                        fprintf(stderr, "ERROR: No CRLF found?!?\n");
-                    }
-                } else {
-                    fprintf(stderr, "ERROR: Server did not reply Content-Length Header field\n");
-                }
+              fprintf(stderr, "ERROR: could not find where body begins\n");
             }
-
+          } else {
+            fprintf(stderr, "ERROR: No CRLF found?!?\n");
+          }
         } else {
-            fprintf(stderr, "Invalid HTTP Response, %s\n", strbuffer);
+          fprintf(stderr, "ERROR: Server did not reply Content-Length Header field\n");
         }
+      }
 
     } else {
-        fprintf(stderr, "Not sure what this response header means\n");
-        fprintf(stderr, "Result=%s\n", strbuffer);
+      fprintf(stderr, "Invalid HTTP Response, %s\n", strbuffer);
     }
 
-    return 0;
+  } else {
+    fprintf(stderr, "Not sure what this response header means\n");
+    fprintf(stderr, "Result=%s\n", strbuffer);
+  }
+
+  return 0;
 }
 
 void HttpClientApplication::OnFileReceived(unsigned status, unsigned length)
@@ -556,6 +556,7 @@ void HttpClientApplication::ForceCloseSocket()
 void HttpClientApplication::HandleRead (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION(this << socket << "URL=" << m_fileToRequest);
+
   if (m_finished_download) {
     fprintf(stderr, "Client(%d)::HandleRead(time=%f) Client is asked to HandleRead although it should have finished already...\n", node_id, Simulator::Now().GetSeconds());
     return;
@@ -662,7 +663,7 @@ void HttpClientApplication::AgentConnectionComplete (Ptr<Socket> socket)
     NS_LOG_FUNCTION (this << socket);
     NS_LOG_DEBUG("Client Connection Completed with Aggregation!");
 
-    fprintf(stderr, "Client successfully connected with DashReqServer at time=%f\n", Simulator::Now().GetSeconds());
+    // fprintf(stderr, "Client successfully connected with DashReqServer at time=%f\n", Simulator::Now().GetSeconds());
 
     // Get ready to receive.
     socket->SetRecvCallback (MakeCallback (&HttpClientApplication::AgentHandleRead, this));
@@ -679,12 +680,16 @@ void HttpClientApplication::AgentConnectionFailed (Ptr<Socket> socket)
     NS_LOG_WARN ("Client failed to open connection.");
 }
 
-void HttpClientApplication::AgentDoSend (Ptr<Socket> socket, uint32_t txSpace)
+void HttpClientApplication::AgentDoSend (Ptr<Socket> socket, uint32_t txSpace, double qoe)
 {
-	std::cout << "Client (" << node_id << ") " << Simulator::Now () << " Socket AgentDoSend video " << m_fileToRequest.c_str() << std::endl;
-  uint8_t* buffer = (uint8_t*)m_fileToRequest.c_str();
+  std::string str_qoe = std::to_string(qoe);
 
-	Ptr<Packet> p = Create<Packet> (buffer, m_fileToRequest.length());
+	std::cout << "Client (" << node_id << "," << node_ipv4str << ") " << Simulator::Now ().GetSeconds() << " Socket AgentDoSend QoE video " << str_qoe << std::endl;
+  // getchar();
+
+  uint8_t* buffer = (uint8_t*)str_qoe.c_str();
+
+	Ptr<Packet> p = Create<Packet> (buffer, str_qoe.length());
 
   socket->Send(p);
 }

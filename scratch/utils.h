@@ -178,7 +178,7 @@ double averageArrival = 5;
 double lamda = 1 / averageArrival;
 std::mt19937 rng (0);
 std::exponential_distribution<double> poi (lamda);
-std::uniform_int_distribution<> dis(0, 1);
+std::uniform_int_distribution<> dis(3, 6);
 std::uniform_real_distribution<double> unif(0, 1);
 
 double sumArrivalTimes=0;

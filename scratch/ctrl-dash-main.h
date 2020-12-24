@@ -521,9 +521,19 @@ void DashController::HandleIncomingData(Ptr<Socket> socket)
   packet->CopyData(buffer, packet->GetSize ());
   string str_s = string(buffer, buffer+packet->GetSize());
 
+	std::ostringstream oss;
+	socket->GetNode()->GetObject<Ipv4>()->GetAddress(1,0).GetLocal().Print(oss);
   cout << "DashController : HandleIncomingData - connection with DashController received " << str_s.c_str() << endl;
 
-  HandleReadyToTransmit(socket, str_s);
+	for (auto& s : m_clientSocket) {
+		Ptr<Socket> skt = s.second;
+		if (skt == socket) {
+			cout << "[DashController : HandleIncomingData] " << s.first << endl;
+		}
+	}
+
+	// DashController::computeQoEGroup(qoe);
+  // HandleReadyToTransmit(socket, str_s);
 }
 
 void DashController::HandleReadyToTransmit(Ptr<Socket> socket, string &requestString)

@@ -51,181 +51,178 @@ class Packet;
  */
 class HttpClientApplication : public Application
 {
-    public:
-        /**
-        * \brief Get the type ID.
-        * \return the object TypeId
-        */
-        static TypeId GetTypeId (void);
+  public:
+    /**
+    * \brief Get the type ID.
+    * \return the object TypeId
+    */
+    static TypeId GetTypeId (void);
 
-        HttpClientApplication ();
+    HttpClientApplication ();
 
-        virtual ~HttpClientApplication ();
+    virtual ~HttpClientApplication ();
 
-        /**
-        * \brief set the remote address and port
-        * \param ip remote IPv4 address
-        * \param port remote port
-        */
-        void SetRemote (Ipv4Address ip, uint16_t port);
-        /**
-        * \brief set the remote address and port
-        * \param ip remote IPv6 address
-        * \param port remote port
-        */
-        void SetRemote (Ipv6Address ip, uint16_t port);
-        /**
-        * \brief set the remote address and port
-        * \param ip remote IP address
-        * \param port remote port
-        */
-        void SetRemote (Address ip, uint16_t port);
-
-
-
-        /**
-        * \brief Forces closing the socket if KeepAlive was set
-        */
-        void ForceCloseSocket();
-
-
-        /**
-        * \brief Cancel the current download by closing the socket
-        */
-        void CancelDownload ();
-
-        void setServerTableList (std::map<std::string, std::string> *serverTableList) {
-          this->serverTableList = serverTableList;
-        }
-
-        std::string getServerTableList (std::string server) {
-          return (*serverTableList)[server];
-        }
-
-    protected:
-        virtual void DoDispose (void);
-
-        bool do_cancel_socket;
-        bool m_is_first_packet;
-        bool m_has_parsed_response_header;
-
-        bool m_finished_download;
-
-        unsigned int requested_content_length;
+    /**
+    * \brief set the remote address and port
+    * \param ip remote IPv4 address
+    * \param port remote port
+    */
+    void SetRemote (Ipv4Address ip, uint16_t port);
+    /**
+    * \brief set the remote address and port
+    * \param ip remote IPv6 address
+    * \param port remote port
+    */
+    void SetRemote (Ipv6Address ip, uint16_t port);
+    /**
+    * \brief set the remote address and port
+    * \param ip remote IP address
+    * \param port remote port
+    */
+    void SetRemote (Address ip, uint16_t port);
 
 
 
-        double lastDownloadBitrate;
-
-        uint32_t node_id;
-        std::string node_ipv4str;
-
-        std::map<std::string, std::string> *serverTableList;
-
-        bool m_keepAlive;
+    /**
+    * \brief Forces closing the socket if KeepAlive was set
+    */
+    void ForceCloseSocket();
 
 
-    protected: // callbacks/traces
-        TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */> m_downloadStartedTrace;
-        TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */,
-                    long /*fileSize*/> m_headerReceivedTrace;
-        TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */,
-                    double /* downloadSpeedInBytesPerSecond */, long /*milliSeconds */> m_downloadFinishedTrace;
-        TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */,
-                    unsigned int /* bytes_recv */> m_currentStatsTrace;
+    /**
+    * \brief Cancel the current download by closing the socket
+    */
+    void CancelDownload ();
+
+    void setServerTableList (std::map<std::string, std::string> *serverTableList) {
+      this->serverTableList = serverTableList;
+    }
+
+    std::string getServerTableList (std::string server) {
+      return (*serverTableList)[server];
+    }
+
+  protected:
+    virtual void DoDispose (void);
+
+    bool do_cancel_socket;
+    bool m_is_first_packet;
+    bool m_has_parsed_response_header;
+
+    bool m_finished_download;
+
+    unsigned int requested_content_length;
 
 
-        void ConnectionComplete (Ptr<Socket> socket);
-        void ConnectionFailed (Ptr<Socket> socket);
-        void ConnectionClosedNormal (Ptr<Socket> socket);
-        void ConnectionClosedError (Ptr<Socket> socket);
 
-        void TryEstablishConnection();
+    double lastDownloadBitrate;
 
-        virtual void OnFileReceived(unsigned status, unsigned length);
+    uint32_t node_id;
+    std::string node_ipv4str;
 
+    std::map<std::string, std::string> *serverTableList;
 
-        void ReportStats();
+    bool m_keepAlive;
 
 
-        uint32_t ParseResponseHeader (const uint8_t* buffer, size_t len, int* statusCode, unsigned int* contentLength);
-
-        void LogStateChange(const  ns3::TcpSocket::TcpStates_t old_state, const  ns3::TcpSocket::TcpStates_t new_state);
-
-        void LogCwndChange(uint32_t oldCwnd, uint32_t newCwnd);
-
-        virtual void StartApplication (void);
-        virtual void StopApplication (void);
+  protected: // callbacks/traces
+    TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */> m_downloadStartedTrace;
+    TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */, long /*fileSize*/> m_headerReceivedTrace;
+    TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */, double /* downloadSpeedInBytesPerSecond */, long /*milliSeconds */> m_downloadFinishedTrace;
+    TracedCallback<Ptr<ns3::Application> /* app */, std::string /* interestName */, unsigned int /* bytes_recv */> m_currentStatsTrace;
 
 
-        std::string m_fileToRequest;
-        std::string m_hostName; //!< The hostname of the destiatnion server
-        std::string m_outFile;
+    void ConnectionComplete (Ptr<Socket> socket);
+    void ConnectionFailed (Ptr<Socket> socket);
+    void ConnectionClosedNormal (Ptr<Socket> socket);
+    void ConnectionClosedError (Ptr<Socket> socket);
 
-        bool m_active;
+    void TryEstablishConnection();
 
-        uint32_t cur_cwnd;
-
-        void AgentTryEstablishConnection();
-        void AgentConnectionComplete (Ptr<Socket> socket);
-        void AgentConnectionFailed (Ptr<Socket> socket);
-        void AgentDoSend (Ptr<Socket> localSocket, uint32_t txSpace);
-        void AgentHandleRead (Ptr<Socket> socket);
-
-    private:
-        uint8_t* _tmpbuffer;
-
-        /**
-        * \brief Callback from Socket when ready to send a packet
-        */
-        virtual void OnReadySend (Ptr<Socket> localSocket, uint32_t txSpace);
-
-        /**
-        * \brief Sending an actual packet
-        */
-        virtual void DoSendGetRequest (Ptr<Socket> localSocket, uint32_t txSpace);
-
-        /**
-        * \brief Handle a packet reception.
-        *
-        * This function is called by lower layers.
-        *
-        * \param socket the socket the packet was received to.
-        */
-        void HandleRead (Ptr<Socket> socket);
-
-        Time m_interval; //!< Packet inter-send time
-        uint32_t m_size; //!< Size of the sent packet
-
-        uint32_t m_sent; //!< Counter for sent packets
-        Ptr<Socket> m_socket; //!< Socket
-        Address m_peerAddress; //!< Remote peer address
-        uint16_t m_peerPort; //!< Remote peer port
-        EventId m_sendEvent; //!< Event to send the next packet
-        EventId m_reportStatsEvent; //!< Event to report statistics
-
-        uint32_t m_bytesRecv; //!< Number of bytes received
-        uint32_t m_bytesSent; //!< Number of bytes sent
-
-        uint32_t m_lastStatsReportedBytesRecv;
-        uint32_t m_lastStatsReportedBytesSent;
-
-        bool m_sentGetRequest; //!< Indicates whether a GET request has been sent yet or not
-
-        /// Callbacks for tracing the packet Tx events
-        TracedCallback<Ptr<const Packet> > m_txTrace;
+    virtual void OnFileReceived(unsigned status, unsigned length);
 
 
-        int64_t _start_time;
-        int64_t _finished_time;
+    void ReportStats();
 
-        uint32_t m_tried_connecting;
-        uint32_t m_success_connecting;
-        uint32_t m_failed_connecting;
 
-        Ptr<Socket> gta_socket; //!< GTA Socket
+    uint32_t ParseResponseHeader (const uint8_t* buffer, size_t len, int* statusCode, unsigned int* contentLength);
 
-        bool m_redirectRequest;
+    void LogStateChange(const  ns3::TcpSocket::TcpStates_t old_state, const  ns3::TcpSocket::TcpStates_t new_state);
+
+    void LogCwndChange(uint32_t oldCwnd, uint32_t newCwnd);
+
+    virtual void StartApplication (void);
+    virtual void StopApplication (void);
+
+
+    std::string m_fileToRequest;
+    std::string m_hostName; //!< The hostname of the destiatnion server
+    std::string m_outFile;
+
+    bool m_active;
+
+    uint32_t cur_cwnd;
+
+    void AgentTryEstablishConnection();
+    void AgentConnectionComplete (Ptr<Socket> socket);
+    void AgentConnectionFailed (Ptr<Socket> socket);
+    void AgentDoSend (Ptr<Socket> socket, uint32_t txSpace, double qoe);
+    void AgentHandleRead (Ptr<Socket> socket);
+
+    Ptr<Socket> gta_socket; //!< GTA Socket
+
+  private:
+    uint8_t* _tmpbuffer;
+
+    /**
+    * \brief Callback from Socket when ready to send a packet
+    */
+    virtual void OnReadySend (Ptr<Socket> localSocket, uint32_t txSpace);
+
+    /**
+    * \brief Sending an actual packet
+    */
+    virtual void DoSendGetRequest (Ptr<Socket> localSocket, uint32_t txSpace);
+
+    /**
+    * \brief Handle a packet reception.
+    *
+    * This function is called by lower layers.
+    *
+    * \param socket the socket the packet was received to.
+    */
+    void HandleRead (Ptr<Socket> socket);
+
+    Time m_interval; //!< Packet inter-send time
+    uint32_t m_size; //!< Size of the sent packet
+
+    uint32_t m_sent; //!< Counter for sent packets
+    Ptr<Socket> m_socket; //!< Socket
+    Address m_peerAddress; //!< Remote peer address
+    uint16_t m_peerPort; //!< Remote peer port
+    EventId m_sendEvent; //!< Event to send the next packet
+    EventId m_reportStatsEvent; //!< Event to report statistics
+
+    uint32_t m_bytesRecv; //!< Number of bytes received
+    uint32_t m_bytesSent; //!< Number of bytes sent
+
+    uint32_t m_lastStatsReportedBytesRecv;
+    uint32_t m_lastStatsReportedBytesSent;
+
+    bool m_sentGetRequest; //!< Indicates whether a GET request has been sent yet or not
+
+    /// Callbacks for tracing the packet Tx events
+    TracedCallback<Ptr<const Packet> > m_txTrace;
+
+
+    int64_t _start_time;
+    int64_t _finished_time;
+
+    uint32_t m_tried_connecting;
+    uint32_t m_success_connecting;
+    uint32_t m_failed_connecting;
+
+    bool m_redirectRequest;
 };
 
 } // namespace ns3

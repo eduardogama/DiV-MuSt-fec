@@ -62,10 +62,9 @@ void Run(unsigned from, unsigned to, int userId, Ptr<DashController> &controller
       controller->onAddContainer(from, to, content, userId);
       break;
     default:
-      cout << "Connection Accepted!" << endl;
+      cout << "[Controller Decision]Connection Accepted!" << endl;
   }
 
-  cout << controller->hasToRedirect() << endl;
   if (controller->hasToRedirect()) {
     controller->RunController();
     controller->DoSendRedirect();
@@ -186,115 +185,80 @@ int main (int argc, char *argv[])
 	mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
                               "MinX", DoubleValue (0),
                               "MinY", DoubleValue (0),
-                              "DeltaX", DoubleValue (40.0),
-                              "DeltaY", DoubleValue (40.0),
-                              "GridWidth", UintegerValue (30),
+                              "DeltaX", DoubleValue (100.0),
+                              "DeltaY", DoubleValue (100.0),
+                              "GridWidth", UintegerValue (400),
 		                          "LayoutType", StringValue ("RowFirst"));
 	mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 
-  YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
-  YansWifiPhyHelper 	  phy     = YansWifiPhyHelper::Default();
-
   Ptr<ListPositionAllocator> positionAlloc = CreateObject <ListPositionAllocator>();
 
-  std::vector<int> v_aps;
-  std::vector<Ssid> v_ssid;
-  std::vector< Ptr< YansWifiChannel > > v_channel;
-
-  std::vector<NodeContainer> v_clients;
-  NodeContainer clients;
-
-	for (size_t i = 0; i < network.getNodes().size(); i++) {
-		Ptr<Node> node = nodes.Get(network.getNodes().at(i)->getId());
-		if (Names::FindName(node).find("ap") != string::npos) {
-			mobility.Install(node);
-			Ptr<MobilityModel> mob = node->GetObject<MobilityModel>();
-
-			WifiHelper wifi;
-			WifiMacHelper mac;
-
-      Ptr< YansWifiChannel > yans_channel = channel.Create();
-
-	    phy.SetChannel(yans_channel);
-
-			ostringstream ss;
-			ss << "ns-3-ssid-" << ++n_ap;
-	    Ssid ssid = Ssid(ss.str());
-
-			wifi.SetRemoteStationManager("ns3::AarfWifiManager");
-			wifi.SetStandard (WIFI_PHY_STANDARD_80211g);
-
-			mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue (ssid));
-			NetDeviceContainer ap_dev =  wifi.Install(phy, mac, node);
-
-			address.Assign(ap_dev);
-
-      v_aps.push_back(network.getNodes().at(i)->getId());
-      v_channel.push_back(yans_channel);
-      v_ssid.push_back(ssid);
-
-      int rng_client = 360/n_clients;
-      double x = mob->GetPosition().x, y = mob->GetPosition().y;
-
-      for (size_t j = 0; j < 360; j += rng_client) {
-        double cosseno = cos(j);
-        double seno    = sin(j);
-        positionAlloc->Add(Vector(5*cosseno + x , 5*seno + y, 0));
-      }
-
-      NodeContainer client;
-      v_clients.push_back(client);
-		}
-  }
-
-  positionAlloc->Add(Vector(20, 15, 0));   // Ap 0
-	positionAlloc->Add(Vector(100, 15, 0));  // Ap 1
-	positionAlloc->Add(Vector(60, 30, 0)); // router 2
-	positionAlloc->Add(Vector(60, 45, 0)); // router 3
-
-  positionAlloc->Add(Vector(20, 15, 0));   // Ap 0
-	positionAlloc->Add(Vector(100, 15, 0));  // Ap 1
-	positionAlloc->Add(Vector(60, 30, 0)); // router 2
-	positionAlloc->Add(Vector(60, 45, 0)); // router 3
 
   int seedValue = time(0);
   RngSeedManager::SetSeed(seedValue);
   srand(seedValue);
   rng.seed(seedValue);
 
+  map<int, NodeContainer> map_aps;
+  NodeContainer clients;
 
-  for (size_t i = 0; i < n_clients*v_aps.size(); i++) {
+  for (size_t i = 0; i < network.getNodes().size(); i++)
+  {
+		Ptr<Node> node = nodes.Get(network.getNodes().at(i)->getId());
+		if (Names::FindName(node).find("ap") != string::npos)
+    {
+      map_aps.insert ( std::pair<int, NodeContainer>(network.getNodes().at(i)->getId(), NodeContainer()) );
+    }
+  }
+
+  for (size_t i = 0; i < n_clients*map_aps.size(); i++)
+  {
     int ap_i = uniformDis();
-
-    Ptr<Node> node_ap     = nodes.Get(network.getNodes().at(v_aps[ap_i])->getId());
     Ptr<Node> node_client = CreateObject<Node> ();
 
     clients.Add(node_client);
-    v_clients[ap_i].Add(node_client);
-
-    internet.Install(node_client);
-
-    WifiHelper wifi;
-    WifiMacHelper mac;
-    phy.SetChannel(v_channel[ap_i]);
-
-    Ssid ssid = v_ssid[ap_i];
-
-    wifi.SetRemoteStationManager("ns3::AarfWifiManager");
-    wifi.SetStandard (WIFI_PHY_STANDARD_80211g);
-
-    mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue (ssid), "ActiveProbing", BooleanValue (true));
-    NetDeviceContainer sta_dev = wifi.Install(phy, mac, node_client);
-
-    address.Assign(sta_dev);
+    map_aps[ap_i].Add(node_client);
   }
+
+  for (auto& ap : map_aps)
+  {
+    int ap_i = ap.first;
+    NodeContainer& node_clients = ap.second;
+
+    mobility.Install(nodes.Get(ap_i));
+    Ptr<MobilityModel> mob = nodes.Get(ap_i)->GetObject<MobilityModel>();
+
+    double rng_client = 360.0/node_clients.GetN();
+    double x = mob->GetPosition().x, y = mob->GetPosition().y;
+
+    int client_i=0;
+    for (size_t j = 0; j < 360 && client_i < node_clients.GetN(); j += rng_client) {
+      double cosseno = cos(j);
+      double seno    = sin(j);
+      positionAlloc->Add(Vector(5*cosseno + x , 5*seno + y, 0));
+      client_i++;
+    }
+  }
+
+  positionAlloc->Add(Vector(50, 15, 0));   // Ap 0
+	positionAlloc->Add(Vector(250, 15, 0));  // Ap 1
+	positionAlloc->Add(Vector(150, 30, 0)); // router 2
+	positionAlloc->Add(Vector(150, 45, 0)); // router 3
+
+  positionAlloc->Add(Vector(50, 15, 0));   // Ap 0
+	positionAlloc->Add(Vector(250, 15, 0));  // Ap 1
+	positionAlloc->Add(Vector(150, 30, 0)); // router 2
+	positionAlloc->Add(Vector(150, 45, 0)); // router 3
+
 
   mobility.SetPositionAllocator(positionAlloc);
 	mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
 
-  for (auto& client : v_clients) {
-      mobility.Install(client);
+  for (auto& ap : map_aps) {
+      NodeContainer& node_clients = ap.second;
+      mobility.Install(node_clients);
   }
+  // mobility.Install(clients);
   mobility.Install(nodes.Get(1));
 	mobility.Install(nodes.Get(2));
 	mobility.Install(nodes.Get(0));
@@ -304,6 +268,40 @@ int main (int argc, char *argv[])
   mobility.Install(cache_nodes.Get(2));
   mobility.Install(cache_nodes.Get(0));
   mobility.Install(cache_nodes.Get(7));
+
+
+  YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
+  YansWifiPhyHelper 	  phy     = YansWifiPhyHelper::Default();
+
+  for (auto& ap : map_aps) {
+    int ap_i = ap.first;
+    NodeContainer& node_clients = ap.second;
+
+    Ptr<Node> node = nodes.Get(ap_i);
+
+    internet.Install(node_clients);
+
+    WifiHelper wifi;
+    WifiMacHelper mac;
+    phy.SetChannel(channel.Create());
+
+    ostringstream ss;
+    ss << "ns-3-ssid-" << ++n_ap;
+    Ssid ssid = Ssid(ss.str());
+
+    wifi.SetRemoteStationManager("ns3::AarfWifiManager");
+    wifi.SetStandard (WIFI_PHY_STANDARD_80211g);
+
+    mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue (ssid));
+    NetDeviceContainer ap_dev =  wifi.Install(phy, mac, node);
+
+    mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue (ssid), "ActiveProbing", BooleanValue (false));
+    NetDeviceContainer sta_dev = wifi.Install(phy, mac, node_clients);
+
+    address.Assign(ap_dev);
+    address.Assign(sta_dev);
+    address.NewNetwork();
+  }
 
 	Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
@@ -327,7 +325,7 @@ int main (int argc, char *argv[])
   	serverApps.Start (Seconds(0.0));
   	serverApps.Stop (Seconds(stopTime));
   }
-  
+
 	//=======================================================================================
   network.setNodeContainers(&cache_nodes);
   network.setClientContainers(&clients);
@@ -341,11 +339,15 @@ int main (int argc, char *argv[])
   controller->SetStopTime(Seconds(stopTime));
 	//=======================================================================================
 
-  int aux=0;
-  for (size_t i = 0; i < v_aps.size(); i++) {
-    for (size_t j = 0; j < v_clients[i].GetN(); j++) {
+  vector<double> startTime;
+
+  int UserId=0;
+  for (auto& ap : map_aps) {
+    int ap_i = ap.first;
+    NodeContainer& node_clients = ap.second;
+
+    for (size_t j = 0; j < node_clients.GetN(); j++) {
       double t = poisson();
-      int UserId = aux++;
 
       int screenWidth = 1920;
       int screenHeight = 1080;
@@ -358,7 +360,7 @@ int main (int argc, char *argv[])
 
   		DASHHttpClientHelper player (ssMPDURL.str());
       player.SetAttribute("AdaptationLogic", StringValue(AdaptationLogicToUse));
-      player.SetAttribute("StartUpDelay", StringValue("4"));
+      player.SetAttribute("StartUpDelay", StringValue("1"));
       player.SetAttribute("ScreenWidth", UintegerValue(screenWidth));
       player.SetAttribute("ScreenHeight", UintegerValue(screenHeight));
       player.SetAttribute("UserId", UintegerValue(UserId));
@@ -367,27 +369,51 @@ int main (int argc, char *argv[])
       player.SetAttribute("MaxBufferedSeconds", StringValue("60"));
 
       ApplicationContainer clientApps;
-      clientApps = player.Install(clients.Get(UserId));
-      clientApps.Start(Seconds(t));
-      clientApps.Stop(Seconds(stopTime));
+      clientApps = player.Install(node_clients.Get(j));
 
-      Ptr<Application> app = clients.Get(UserId)->GetApplication(0);
+      Ptr<Application> app = node_clients.Get(j)->GetApplication(0);
       app->GetObject<HttpClientApplication> ()->setServerTableList(&serverTableList);
 
-      string str_ipv4_client = Ipv4AddressToString(clients.Get(UserId)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal());
+      string str_ipv4_client = Ipv4AddressToString(node_clients.Get(j)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal());
       serverTableList[str_ipv4_client] = str_ipv4_server;
 
-
-      cout << "ip user=" << str_ipv4_client << " server=" << str_ipv4_server << endl;
-  		Simulator::Schedule(Seconds(t), Run, v_aps[i], dst_server, UserId, controller);
+      startTime.push_back(t);
+      UserId++;
   	}
+  }
+
+  for (size_t i = 0; i < clients.GetN(); i++) {
+    Ptr<Application> app = clients.Get(i)->GetApplication(0);
+
+    for (auto& ap : map_aps) {
+      NodeContainer& node_clients = ap.second;
+
+      bool finded = false;
+      for (size_t j = 0; j < node_clients.GetN(); j++) {
+        if (node_clients.Get(j)->GetId() == clients.Get(i)->GetId()) {
+          finded = true;
+          break;
+        }
+      }
+      if (finded) {
+        string str_ipv4_client = Ipv4AddressToString(clients.Get(i)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal());
+
+        cout << "user id=" << clients.Get(i)->GetId() << " user ip=" << str_ipv4_client << " server=" << str_ipv4_server << " ap=" << ap.first << endl;
+        Simulator::Schedule(Seconds(startTime[i]), Run, ap.first, dst_server, clients.Get(i)->GetId() , controller);
+
+        break;
+      }
+    }
+
+    app->SetStartTime(Seconds(startTime[i]));
+    app->SetStopTime(Seconds(stopTime));
   }
 
 	// %%%%%%%%%%%% sort out the simulation
 	string dir = CreateDir("../dash-multi-layer");
 	AnimationInterface anim(dir + string("/topology.netanim"));
 
-	DASHPlayerTracer::InstallAll(dir + string("/topology.netanim") + to_string(seed) + string(".csv"));
+	DASHPlayerTracer::InstallAll(dir + string("/topology-") + to_string(seed) + string(".csv"));
 
 	Simulator::Stop(Seconds(stopTime));
 	Simulator::Run();

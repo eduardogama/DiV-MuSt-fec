@@ -193,338 +193,328 @@ void MultimediaConsumer<Parent>::StartApplication() // Called at time specified 
 template<class Parent>
 void MultimediaConsumer<Parent>::StopApplication() // Called at time specified by Stop
 {
-    NS_LOG_FUNCTION_NOARGS();
+  NS_LOG_FUNCTION_NOARGS();
 
-    fprintf(stderr, "Client(%d): Stopping...\n", super::node_id);
+  fprintf(stderr, "Client(%d): Stopping...\n", super::node_id);
 
-    // Cancelling Event Timers
-    m_consumerLoopTimer.Cancel();
-    Simulator::Cancel(m_consumerLoopTimer);
+  // Cancelling Event Timers
+  m_consumerLoopTimer.Cancel();
+  Simulator::Cancel(m_consumerLoopTimer);
 
-    m_downloadEventTimer.Cancel();
-    Simulator::Cancel(m_downloadEventTimer);
+  m_downloadEventTimer.Cancel();
+  Simulator::Cancel(m_downloadEventTimer);
 
-    /*OK LOG ALL NOT RECEIVED FILES FROM MPD*/
-    if(traceNotDownloadedSegments) {
-        //check if mpd and player exists
-        if(mpd != NULL && mPlayer != NULL) {
-            //first consume everything from buffer
-            while(consume() > 0.0);
-            //ok check how many segments we have not consumed
-            while(totalConsumedSegments < mPlayer->GetAdaptationLogic()->getTotalSegments()) {
-                m_playerTracer(this, m_userId, totalConsumedSegments++, "0", 0, 0, 0, std::vector<std::string>());
-            }
-        }
+  /*OK LOG ALL NOT RECEIVED FILES FROM MPD*/
+  if(traceNotDownloadedSegments) {
+    //check if mpd and player exists
+    if(mpd != NULL && mPlayer != NULL) {
+      //first consume everything from buffer
+      while(consume() > 0.0);
+      //ok check how many segments we have not consumed
+      while(totalConsumedSegments < mPlayer->GetAdaptationLogic()->getTotalSegments()) {
+        m_playerTracer(this, m_userId, totalConsumedSegments++, "0", 0, 0, 0, std::vector<std::string>());
+      }
     }
+  }
 
-    // clean up mpd/DASH specific stuff
-    if (mpd != NULL) {
-        delete mpd;
-        mpd = NULL;
-    }
+  // clean up mpd/DASH specific stuff
+  if (mpd != NULL) {
+    delete mpd;
+    mpd = NULL;
+  }
 
-    if (mPlayer != NULL) {
-        delete mPlayer;
-        mPlayer = NULL;
-    }
+  if (mPlayer != NULL) {
+    delete mPlayer;
+    mPlayer = NULL;
+  }
 
-    super::SetAttribute("KeepAlive", StringValue("false"));
+  super::SetAttribute("KeepAlive", StringValue("false"));
 
-    // make sure to close the socket, in case it is still open
-    super::ForceCloseSocket();
+  // make sure to close the socket, in case it is still open
+  super::ForceCloseSocket();
 
-    // cleanup base stuff
-    super::StopApplication();
+  // cleanup base stuff
+  super::StopApplication();
 }
 
 template<class Parent>
 bool MultimediaConsumer<Parent>::DecompressFile ( std::string source, std::string filename )
 {
-    NS_LOG_FUNCTION(source << filename);
-    std::ifstream infile( source.c_str(), std::ios_base::in | std::ios_base::binary ); //Creates the input stream
-    //Tests if the file is being opened correctly.
-    if ( !infile ) {
-        std::cerr<< "Can't open file: " << source << std::endl;
-        return false;
-    }
+  NS_LOG_FUNCTION(source << filename);
+  std::ifstream infile( source.c_str(), std::ios_base::in | std::ios_base::binary ); //Creates the input stream
+  //Tests if the file is being opened correctly.
+  if ( !infile ) {
+    std::cerr<< "Can't open file: " << source << std::endl;
+    return false;
+  }
 
-    // read
-    std::string compressed_str((std::istreambuf_iterator<char>(infile)),
-                std::istreambuf_iterator<char>());
+  // read
+  std::string compressed_str((std::istreambuf_iterator<char>(infile)),
+              std::istreambuf_iterator<char>());
 
-    try {
-      std::string decompressed = zlib_decompress_string(compressed_str);
+  try {
+    std::string decompressed = zlib_decompress_string(compressed_str);
 
-      std::ofstream outfile( filename.c_str(), std::ios_base::out |  std::ios_base::binary ); //Creates the output stream
-      outfile << decompressed;
-      outfile.close();
-    } catch(std::exception& e) {
-      //std::cerr << e.what() << std::endl;
-      NS_LOG_DEBUG(e.what() << " Assuming file was not zipped!");
-      return false;
-    }
+    std::ofstream outfile( filename.c_str(), std::ios_base::out |  std::ios_base::binary ); //Creates the output stream
+    outfile << decompressed;
+    outfile.close();
+  } catch(std::exception& e) {
+    //std::cerr << e.what() << std::endl;
+    NS_LOG_DEBUG(e.what() << " Assuming file was not zipped!");
+    return false;
+  }
 
-    return true;
+  return true;
 }
 
 template<class Parent>
 void MultimediaConsumer<Parent>::OnMpdFile()
 {
-    fprintf(stderr, "Client(%d): On MPD File...\n", super::node_id);
+  fprintf(stderr, "Client(%d): On MPD File...\n", super::node_id);
 
-    // check if file was gziped, if not, we use it as is
-    if (m_tempMpdFile.find(".gz") != std::string::npos) {
-        // file was compressed, decompress it
-        NS_LOG_DEBUG("GZIP MPD File " << m_tempMpdFile << " received. Decompressing...");
-        std::string newFileName = m_tempMpdFile.substr(0, m_tempMpdFile.find(".gz"));
+  // check if file was gziped, if not, we use it as is
+  if (m_tempMpdFile.find(".gz") != std::string::npos) {
+    // file was compressed, decompress it
+    NS_LOG_DEBUG("GZIP MPD File " << m_tempMpdFile << " received. Decompressing...");
+    std::string newFileName = m_tempMpdFile.substr(0, m_tempMpdFile.find(".gz"));
 
-        // TODO DECOMPRESS
-        if(DecompressFile(m_tempMpdFile, newFileName))
-            m_tempMpdFile = newFileName;
-    }
+    // TODO DECOMPRESS
+    if(DecompressFile(m_tempMpdFile, newFileName))
+      m_tempMpdFile = newFileName;
+  }
 
-    NS_LOG_DEBUG("MPD File " << m_tempMpdFile << " received. Parsing now...");
+  NS_LOG_DEBUG("MPD File " << m_tempMpdFile << " received. Parsing now...");
 
-    dash::IDASHManager *manager;
-    manager = CreateDashManager();
-    mpd = manager->Open((char*)m_tempMpdFile.c_str());
+  dash::IDASHManager *manager;
+  manager = CreateDashManager();
+  mpd = manager->Open((char*)m_tempMpdFile.c_str());
 
-    // We don't need the manager anymore...
-    manager->Delete();
-    manager = NULL;
+  // We don't need the manager anymore...
+  manager->Delete();
+  manager = NULL;
 
 
-    if (mpd == NULL) {
-        NS_LOG_ERROR("Error parsing mpd " << m_tempMpdFile);
-        return;
-    }
+  if (mpd == NULL) {
+    NS_LOG_ERROR("Error parsing mpd " << m_tempMpdFile);
+    return;
+  }
 
-    // we are assuming there is only 1 period, get the first one
-    IPeriod *currentPeriod = mpd->GetPeriods().at(0);
+  // we are assuming there is only 1 period, get the first one
+  IPeriod *currentPeriod = mpd->GetPeriods().at(0);
 
-    // get base URLs
-    m_baseURL = "";
-    std::vector<dash::mpd::IBaseUrl*> baseUrls = mpd->GetBaseUrls ();
+  // get base URLs
+  m_baseURL = "";
+  std::vector<dash::mpd::IBaseUrl*> baseUrls = mpd->GetBaseUrls ();
 
-    if (baseUrls.size() > 0) {
-        if (baseUrls.size() == 1) {
-            m_baseURL = baseUrls.at(0)->GetUrl();
-        } else {
-            int randUrl = rand() % baseUrls.size();
-            NS_LOG_DEBUG("Mutliple base URLs available, selecting a random one... ");
-            m_baseURL = baseUrls.at(randUrl)->GetUrl();
-        }
-
-        // m_baseURL needs to be parsed
-        // starts with http://
-        std::string delim = "http://";
-
-        if (m_baseURL.find(delim) == 0) {
-            std::string hostname = m_baseURL.substr(7);
-            // get host
-            m_baseURL = hostname.substr(hostname.find("/")+1);
-
-            hostname = hostname.substr(0, hostname.find("/"));
-            super::SetRemote(Ipv4Address(hostname.c_str()),80);
-            NS_LOG_DEBUG("Client(" << super::node_id << "): Base URL: " << m_baseURL << ", hostname = " << hostname);
-        } else {
-            NS_LOG_ERROR("Client(" << super::node_id << "): Could not properly parse baseURL. Expected 'http://ipAddress/folder/blub/'.");
-            return;
-        }
+  if (baseUrls.size() > 0) {
+    if (baseUrls.size() == 1) {
+      m_baseURL = baseUrls.at(0)->GetUrl();
     } else {
-        NS_LOG_ERROR("Client(" << super::node_id << "): No Base URL provided in MPD file... exiting.");
-        return;
+        int randUrl = rand() % baseUrls.size();
+      NS_LOG_DEBUG("Mutliple base URLs available, selecting a random one... ");
+      m_baseURL = baseUrls.at(randUrl)->GetUrl();
     }
 
-    // Get the adaptation sets, though we are only takeing the first one
-    std::vector<IAdaptationSet *> allAdaptationSets = currentPeriod->GetAdaptationSets();
+    // m_baseURL needs to be parsed
+    // starts with http://
+    std::string delim = "http://";
 
-    // we are assuming that allAdaptationSets.size() == 1
-    if (allAdaptationSets.size() == 0) {
-        NS_LOG_ERROR("Client(" << super::node_id << "): No adaptation sets found in MPD file... exiting.");
-        return;
-    }
+    if (m_baseURL.find(delim) == 0) {
+      std::string hostname = m_baseURL.substr(7);
+      // get host
+      m_baseURL = hostname.substr(hostname.find("/")+1);
 
-    // use first adaptation set
-    IAdaptationSet* adaptationSet = allAdaptationSets.at(0);
-
-    // check if the adaptation set has an init segment
-    // alternatively, the init segment is representation-specific
-    NS_LOG_DEBUG("Checking for init segment in adaptation set...");
-    std::string initSegment = "";
-
-    if (adaptationSet->GetSegmentBase () && adaptationSet->GetSegmentBase ()->GetInitialization ()) {
-        NS_LOG_DEBUG("Adaptation Set has INIT Segment");
-        // get URL to init segment
-        initSegment = adaptationSet->GetSegmentBase ()->GetInitialization ()->GetSourceURL ();
-        // TODO: request init segment
-        m_initSegmentIsGlobal = true;
-        m_hasInitSegment = true;
+      hostname = hostname.substr(0, hostname.find("/"));
+      super::SetRemote(Ipv4Address(hostname.c_str()),80);
+      NS_LOG_DEBUG("Client(" << super::node_id << "): Base URL: " << m_baseURL << ", hostname = " << hostname);
     } else {
-        NS_LOG_DEBUG("Adaptation Set does not have INIT Segment");
-        m_hasInitSegment = false;
-        /*if (adaptationSet->GetRepresentation().at(0)->GetSegmentBase())
-        {
-        std::cerr << "Alternative: " << adaptationSet->GetRepresentation().at(0)->GetSegmentBase()->GetInitialization()->GetSourceURL() << std::endl;
-        }*/
+      NS_LOG_ERROR("Client(" << super::node_id << "): Could not properly parse baseURL. Expected 'http://ipAddress/folder/blub/'.");
+      return;
+    }
+  } else {
+    NS_LOG_ERROR("Client(" << super::node_id << "): No Base URL provided in MPD file... exiting.");
+    return;
+  }
+
+  // Get the adaptation sets, though we are only takeing the first one
+  std::vector<IAdaptationSet *> allAdaptationSets = currentPeriod->GetAdaptationSets();
+
+  // we are assuming that allAdaptationSets.size() == 1
+  if (allAdaptationSets.size() == 0) {
+    NS_LOG_ERROR("Client(" << super::node_id << "): No adaptation sets found in MPD file... exiting.");
+    return;
+  }
+
+  // use first adaptation set
+  IAdaptationSet* adaptationSet = allAdaptationSets.at(0);
+
+  // check if the adaptation set has an init segment
+  // alternatively, the init segment is representation-specific
+  NS_LOG_DEBUG("Checking for init segment in adaptation set...");
+  std::string initSegment = "";
+
+  if (adaptationSet->GetSegmentBase () && adaptationSet->GetSegmentBase ()->GetInitialization ()) {
+    NS_LOG_DEBUG("Adaptation Set has INIT Segment");
+    // get URL to init segment
+    initSegment = adaptationSet->GetSegmentBase ()->GetInitialization ()->GetSourceURL ();
+    // TODO: request init segment
+    m_initSegmentIsGlobal = true;
+    m_hasInitSegment = true;
+  } else {
+    NS_LOG_DEBUG("Adaptation Set does not have INIT Segment");
+    m_hasInitSegment = false;
+    /*if (adaptationSet->GetRepresentation().at(0)->GetSegmentBase())
+    {
+    std::cerr << "Alternative: " << adaptationSet->GetRepresentation().at(0)->GetSegmentBase()->GetInitialization()->GetSourceURL() << std::endl;
+    }*/
+  }
+
+
+  // get all representations
+  std::vector<IRepresentation*> reps = adaptationSet->GetRepresentation();
+
+  NS_LOG_DEBUG("Client(" << super::node_id << "): MPD file contains " << reps.size() << " Representations: ");
+  NS_LOG_DEBUG("Client(" << super::node_id << "): Start Representation: " << m_startRepresentationId);
+
+  // calculate segment duration
+  // reps.at(0)->GetSegmentList()->GetDuration();
+  NS_LOG_DEBUG("Client(" << super::node_id << "): Period Duration:" << reps.at(0)->GetSegmentList()->GetDuration());
+
+  bool startRepresentationSelected = false;
+
+  std::string firstRepresentationId = "";
+  std::string bestRepresentationBasedOnBandwidth = "";
+
+  mPlayer->SetLastDownloadBitRate(super::lastDownloadBitrate);
+
+
+  NS_LOG_DEBUG("Client(" << super::node_id << "): Download Speed of MPD file was : " << super::lastDownloadBitrate << " bits per second");
+  m_isLayeredContent = false;
+
+  m_availableRepresentations.clear();
+
+  std::vector<IRepresentation* >::iterator it;
+
+  //for (IRepresentation* rep : reps)
+  for (it = reps.begin(); it != reps.end(); ++it)
+  {
+    IRepresentation* rep = *it;
+    unsigned int width = rep->GetWidth();
+    unsigned int height = rep->GetHeight();
+
+    // if not allowed to upscale, skip this representation
+    if (!m_allowUpscale && width < this->m_screenWidth && height < this->m_screenHeight)
+    {
+      continue;
     }
 
-
-    // get all representations
-    std::vector<IRepresentation*> reps = adaptationSet->GetRepresentation();
-
-    NS_LOG_DEBUG("Client(" << super::node_id << "): MPD file contains " << reps.size() << " Representations: ");
-    NS_LOG_DEBUG("Client(" << super::node_id << "): Start Representation: " << m_startRepresentationId);
-
-    // calculate segment duration
-    // reps.at(0)->GetSegmentList()->GetDuration();
-    NS_LOG_DEBUG("Client(" << super::node_id << "): Period Duration:" << reps.at(0)->GetSegmentList()->GetDuration());
-
-    bool startRepresentationSelected = false;
-
-    std::string firstRepresentationId = "";
-    std::string bestRepresentationBasedOnBandwidth = "";
-
-    mPlayer->SetLastDownloadBitRate(super::lastDownloadBitrate);
-
-
-    NS_LOG_DEBUG("Client(" << super::node_id << "): Download Speed of MPD file was : " << super::lastDownloadBitrate << " bits per second");
-    m_isLayeredContent = false;
-
-    m_availableRepresentations.clear();
-
-    std::vector<IRepresentation* >::iterator it;
-
-    //for (IRepresentation* rep : reps)
-    for (it = reps.begin(); it != reps.end(); ++it)
+    // if not allowed to downscale and width/height are too large, skip this representation
+    if (!m_allowDownscale && width > this->m_screenWidth && height > this->m_screenHeight)
     {
-        IRepresentation* rep = *it;
-        unsigned int width = rep->GetWidth();
-        unsigned int height = rep->GetHeight();
-
-        // if not allowed to upscale, skip this representation
-        if (!m_allowUpscale && width < this->m_screenWidth && height < this->m_screenHeight)
-        {
-            continue;
-        }
-
-        // if not allowed to downscale and width/height are too large, skip this representation
-        if (!m_allowDownscale && width > this->m_screenWidth && height > this->m_screenHeight)
-        {
-            continue;
-        }
-
-        std::string repId = rep->GetId();
-
-        if (firstRepresentationId == "")
-            firstRepresentationId = repId;
-
-        // else: Use this representation and add it to available representations
-        std::vector<std::string> dependencies = rep->GetDependencyId ();
-
-        unsigned int requiredDownloadSpeed = rep->GetBandwidth();
-
-        if (dependencies.size() > 0) // we found out that this is layered content
-            m_isLayeredContent = true;
-
-        NS_LOG_DEBUG("ID = " << repId << ", DepId=" <<
-            dependencies.size() << ", width=" << width << ", height=" << height << ", bwReq=" << requiredDownloadSpeed);
-
-
-        if (!startRepresentationSelected && m_startRepresentationId != "lowest")
-        {
-            if (m_startRepresentationId == "auto")
-            {
-                // do we have enough bandwidth available?
-                if (super::lastDownloadBitrate > requiredDownloadSpeed)
-                {
-                    // yes we do!
-                    bestRepresentationBasedOnBandwidth = repId;
-                }
-            }
-            else if (rep->GetId() == m_startRepresentationId)
-            {
-                NS_LOG_DEBUG("The last representation is the start representation!");
-                startRepresentationSelected = true;
-            }
-        }
-
-        m_availableRepresentations[repId] = rep;
+      continue;
     }
 
-    /** TODO: What if there are several representations bith the same bitrate but different spatial resolutions? How to pick the right one...
-      We need to have a utility value for each representation
-    */
+    std::string repId = rep->GetId();
 
-    // check m_startRepresentationId
-    if (m_startRepresentationId == "lowest")
+    if (firstRepresentationId == "")
+      firstRepresentationId = repId;
+
+    // else: Use this representation and add it to available representations
+    std::vector<std::string> dependencies = rep->GetDependencyId ();
+
+    unsigned int requiredDownloadSpeed = rep->GetBandwidth();
+
+    if (dependencies.size() > 0) // we found out that this is layered content
+      m_isLayeredContent = true;
+
+    NS_LOG_DEBUG("ID = " << repId << ", DepId=" <<
+        dependencies.size() << ", width=" << width << ", height=" << height << ", bwReq=" << requiredDownloadSpeed);
+
+
+    if (!startRepresentationSelected && m_startRepresentationId != "lowest")
     {
-        NS_LOG_DEBUG("Using Lowest available representation; ID = " << firstRepresentationId);
-        m_startRepresentationId = firstRepresentationId;
+      if (m_startRepresentationId == "auto")
+      {
+        // do we have enough bandwidth available?
+        if (super::lastDownloadBitrate > requiredDownloadSpeed)
+        {
+          // yes we do!
+          bestRepresentationBasedOnBandwidth = repId;
+        }
+      }
+      else if (rep->GetId() == m_startRepresentationId)
+      {
+        NS_LOG_DEBUG("The last representation is the start representation!");
         startRepresentationSelected = true;
-    } else if (m_startRepresentationId == "auto")
-    {
-        // select representation based on bandwidth
-        if (bestRepresentationBasedOnBandwidth != "")
-        {
-            NS_LOG_DEBUG("Using best representation based on bandwidth; ID = " << bestRepresentationBasedOnBandwidth);
-            m_startRepresentationId = bestRepresentationBasedOnBandwidth;
-            startRepresentationSelected = true;
-        }
+      }
     }
 
-    // was there a start representation selected?
-    if (!startRepresentationSelected)
-    {
-        // IF NOT, default to lowest
-        NS_LOG_DEBUG("No start representation selected, default to lowest available representation; ID = " << firstRepresentationId);
-        m_startRepresentationId = firstRepresentationId;
-        startRepresentationSelected = true;
+    m_availableRepresentations[repId] = rep;
+  }
+
+  /** TODO: What if there are several representations bith the same bitrate but different spatial resolutions? How to pick the right one...
+    We need to have a utility value for each representation
+  */
+
+  // check m_startRepresentationId
+  if (m_startRepresentationId == "lowest")
+  {
+    NS_LOG_DEBUG("Using Lowest available representation; ID = " << firstRepresentationId);
+    m_startRepresentationId = firstRepresentationId;
+    startRepresentationSelected = true;
+  } else if (m_startRepresentationId == "auto") {
+    // select representation based on bandwidth
+    if (bestRepresentationBasedOnBandwidth != "") {
+      NS_LOG_DEBUG("Using best representation based on bandwidth; ID = " << bestRepresentationBasedOnBandwidth);
+      m_startRepresentationId = bestRepresentationBasedOnBandwidth;
+      startRepresentationSelected = true;
     }
+  }
 
-    m_curRepId = m_startRepresentationId;
+  // was there a start representation selected?
+  if (!startRepresentationSelected) {
+    // IF NOT, default to lowest
+    NS_LOG_DEBUG("No start representation selected, default to lowest available representation; ID = " << firstRepresentationId);
+    m_startRepresentationId = firstRepresentationId;
+    startRepresentationSelected = true;
+  }
 
-    // okay, check init segment
-    if (initSegment == "" && m_hasInitSegment == true)
-    {
-        NS_LOG_DEBUG("Using init segment of representation " << m_startRepresentationId);
-        initSegment = m_availableRepresentations[m_startRepresentationId]->GetSegmentBase()->GetInitialization()->GetSourceURL();
-        NS_LOG_DEBUG("Init Segment URL = " << initSegment);
-    }
+  m_curRepId = m_startRepresentationId;
 
+  // okay, check init segment
+  if (initSegment == "" && m_hasInitSegment == true) {
+    NS_LOG_DEBUG("Using init segment of representation " << m_startRepresentationId);
+    initSegment = m_availableRepresentations[m_startRepresentationId]->GetSegmentBase()->GetInitialization()->GetSourceURL();
+    NS_LOG_DEBUG("Init Segment URL = " << initSegment);
+  }
 
-    m_mpdParsed = true;
-    mPlayer->SetAvailableRepresentations(&m_availableRepresentations);
+  m_mpdParsed = true;
+  mPlayer->SetAvailableRepresentations(&m_availableRepresentations);
 
+  // trigger MPD parsed after x seconds
+  unsigned long curTime = Simulator::Now().GetMilliSeconds();
+  NS_LOG_DEBUG("MPD received after " << (curTime - m_startTime) << " ms");
 
-    // trigger MPD parsed after x seconds
-    unsigned long curTime = Simulator::Now().GetMilliSeconds();
-    NS_LOG_DEBUG("MPD received after " << (curTime - m_startTime) << " ms");
+  if (initSegment == "") {
+    NS_LOG_DEBUG("No init Segment selected.");
+    // schedule streaming of first segment
+    m_currentDownloadType = Segment;
+    ScheduleDownloadOfSegment();
+  } else {
+    // Schedule streaming of init segment
+    m_initSegment = initSegment;
+    m_currentDownloadType = InitSegment;
+    ScheduleDownloadOfInitSegment();
+  }
 
-    if (initSegment == "")
-    {
-        NS_LOG_DEBUG("No init Segment selected.");
-        // schedule streaming of first segment
-        m_currentDownloadType = Segment;
-        ScheduleDownloadOfSegment();
-    } else
-    {
-        // Schedule streaming of init segment
-        m_initSegment = initSegment;
-        m_currentDownloadType = InitSegment;
-        ScheduleDownloadOfInitSegment();
-    }
+  // we received the MDP, so we can now start the timer for playing
+  SchedulePlay(startupDelay);
 
-    std::cout << "/* message */ 3" << '\n';
-    // we received the MDP, so we can now start the timer for playing
-    SchedulePlay(startupDelay);
-
-    /* also we can delete the folder (m_tempDir) the MPD is stored in */
-    std::string rmdir_cmd = "rm -rf " + m_tempDir;
-    if (system(rmdir_cmd.c_str()) != 0)
-    {
-        fprintf(stderr, "Error: could not delete directory '%s'.\n", m_tempDir.c_str());
-    }
+  /* also we can delete the folder (m_tempDir) the MPD is stored in */
+  std::string rmdir_cmd = "rm -rf " + m_tempDir;
+  if (system(rmdir_cmd.c_str()) != 0) {
+    fprintf(stderr, "Error: could not delete directory '%s'.\n", m_tempDir.c_str());
+  }
 }
 
 template<class Parent>
@@ -537,8 +527,7 @@ void MultimediaConsumer<Parent>::OnMultimediaFile()
 
   // get the current representation id
   // and check if this was an init segment
-  if (m_currentDownloadType == InitSegment)
-  {
+  if (m_currentDownloadType == InitSegment) {
     // init segment
     if (m_initSegmentIsGlobal) {
       m_downloadedInitSegments.push_back("GlobalAdaptationSet");
@@ -547,9 +536,7 @@ void MultimediaConsumer<Parent>::OnMultimediaFile()
       m_downloadedInitSegments.push_back(m_curRepId);
       NS_LOG_DEBUG("Init Segment received (rep=" << m_curRepId << ")");
     }
-  }
-  else
-  {
+  } else {
     // normal segment
     //fprintf(stderr, "lastBitrate = %f\n", super::lastDownloadBitrate);
     mPlayer->SetLastDownloadBitRate(super::lastDownloadBitrate);
@@ -557,15 +544,12 @@ void MultimediaConsumer<Parent>::OnMultimediaFile()
     fprintf(stderr, "Last Download Speed = %f kBit/s\n", super::lastDownloadBitrate/1000.0);
 
     // check if there is enough space in buffer
-    if(mPlayer->EnoughSpaceInBuffer(requestedSegmentNr, requestedRepresentation, m_isLayeredContent))
-    {
+    if(mPlayer->EnoughSpaceInBuffer(requestedSegmentNr, requestedRepresentation, m_isLayeredContent)) {
       if(mPlayer->AddToBuffer(requestedSegmentNr, requestedRepresentation, super::lastDownloadBitrate, m_isLayeredContent))
         NS_LOG_DEBUG("Segment Accepted for Buffering");
       else
         NS_LOG_DEBUG("Segment Rejected for Buffering");
-    }
-    else
-    {
+    } else {
       // try again in 1 second, and again and again... but do not donwload anything in the meantime
       Simulator::Schedule(Seconds(1.0), &MultimediaConsumer<Parent>::OnMultimediaFile, this);
       return;
@@ -579,8 +563,8 @@ void MultimediaConsumer<Parent>::OnMultimediaFile()
 template<class Parent>
 void MultimediaConsumer<Parent>::OnFileReceived(unsigned status, unsigned length)
 {
-
-  std::cout << "ENTROU ***************" << std::endl;
+  // std::cout << "ENTROU ***************" << std::endl;
+  // getchar();
   // make sure that the file is being properly retrieved by the super class first!
   super::OnFileReceived(status, length);
 
@@ -616,57 +600,56 @@ void MultimediaConsumer<Parent>::DownloadInitSegment()
 template<class Parent>
 void MultimediaConsumer<Parent>::ScheduleDownloadOfSegment()
 {
-    // wait 1 ms (dummy time) before downloading next segment - this prevents some issues
-    // with start/stop application and interests coming in late.
-    m_downloadEventTimer.Cancel();
-    m_downloadEventTimer = Simulator::Schedule(Seconds(0.001), &MultimediaConsumer<Parent>::DownloadSegment, this);
+  // wait 1 ms (dummy time) before downloading next segment - this prevents some issues
+  // with start/stop application and interests coming in late.
+  m_downloadEventTimer.Cancel();
+  m_downloadEventTimer = Simulator::Schedule(Seconds(0.001), &MultimediaConsumer<Parent>::DownloadSegment, this);
 }
 
 template<class Parent>
 void MultimediaConsumer<Parent>::DownloadSegment()
 {
-    // Not needed on Buffer insert we will wait!
-    /*if (mPlayer->GetBufferLevel() >= m_maxBufferedSeconds)
-    {
-    NS_LOG_DEBUG("Player Buffer=" << mPlayer->GetBufferLevel() << ", MaxBuffer= " << m_maxBufferedSeconds << ", pausing download...");
-    // we can wait before we need to downlaod something again - but for how long?
-    // seems that half of segment-length should be good
+  // Not needed on Buffer insert we will wait!
+  /*if (mPlayer->GetBufferLevel() >= m_maxBufferedSeconds)
+  {
+  NS_LOG_DEBUG("Player Buffer=" << mPlayer->GetBufferLevel() << ", MaxBuffer= " << m_maxBufferedSeconds << ", pausing download...");
+  // we can wait before we need to downlaod something again - but for how long?
+  // seems that half of segment-length should be good
 
-    Simulator::Schedule(Seconds(1.0), &MultimediaConsumer<Parent>::DownloadSegment, this);
+  Simulator::Schedule(Seconds(1.0), &MultimediaConsumer<Parent>::DownloadSegment, this);
+  return;
+  }*/
+
+  // get segment number and rep id
+  requestedRepresentation = NULL;
+  requestedSegmentNr = 0;
+
+  requestedSegmentURL = mPlayer->GetAdaptationLogic()->GetNextSegment(&requestedSegmentNr, &requestedRepresentation, &m_hasDownloadedAllSegments);
+  // fprintf(stderr, "Multimediaconsumer::Downloadsegment()\n");
+
+  if(m_hasDownloadedAllSegments) { // DONE
+    NS_LOG_DEBUG("No more segments available for download!\n");
+    // make sure to close the socket
+    super::ForceCloseSocket();
     return;
-    }*/
+  }
 
-    // get segment number and rep id
-    requestedRepresentation = NULL;
-    requestedSegmentNr = 0;
+  if (requestedSegmentURL == NULL) { //IDLE
+    NS_LOG_DEBUG("IDLE\n");
+    m_downloadEventTimer = Simulator::Schedule(Seconds(1.0), &MultimediaConsumer<Parent>::DownloadSegment, this);
+    return;
+  }
 
-    requestedSegmentURL = mPlayer->GetAdaptationLogic()->GetNextSegment(&requestedSegmentNr, &requestedRepresentation, &m_hasDownloadedAllSegments);
-    fprintf(stderr, "Multimediaconsumer::Downloadsegment()\n");
-    if(m_hasDownloadedAllSegments) // DONE
-    {
-        NS_LOG_DEBUG("No more segments available for download!\n");
-        // make sure to close the socket
-        super::ForceCloseSocket();
-        return;
-    }
+  // dash::player::MultimediaBuffer::BufferRepresentationEntry entry = mPlayer->ConsumeFromBuffer();
 
-    if (requestedSegmentURL == NULL) //IDLE
-    {
-        NS_LOG_DEBUG("IDLE\n");
-        m_downloadEventTimer = Simulator::Schedule(Seconds(1.0), &MultimediaConsumer<Parent>::DownloadSegment, this);
-        return;
-    }
+  // CalcQoE(entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
+  //   freezeTime, (unsigned int) (mPlayer->GetBufferLevel()));
+  // getchar();
 
-    // dash::player::MultimediaBuffer::BufferRepresentationEntry entry = mPlayer->ConsumeFromBuffer();
-
-    // CalcQoE(entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
-    //   freezeTime, (unsigned int) (mPlayer->GetBufferLevel()));
-    // getchar();
-
-    super::StopApplication();
-    super::SetAttribute("FileToRequest", StringValue(m_baseURL + requestedSegmentURL->GetMediaURI()));
-    super::SetAttribute("WriteOutfile", StringValue(""));
-    super::StartApplication();
+  super::StopApplication();
+  super::SetAttribute("FileToRequest", StringValue(m_baseURL + requestedSegmentURL->GetMediaURI()));
+  super::SetAttribute("WriteOutfile", StringValue(""));
+  super::StartApplication();
 }
 
 template<class Parent>
@@ -681,26 +664,19 @@ void MultimediaConsumer<Parent>::DoPlay()
 {
   double consumed_sec = consume();
 
-  if(consumed_sec > 0) // we play
-  {
+  if(consumed_sec > 0) { // we play
     SchedulePlay(consumed_sec);
-  }
-  else if(consumed_sec == 0.0 && m_hasDownloadedAllSegments)
-  {
+  } else if(consumed_sec == 0.0 && m_hasDownloadedAllSegments) {
     //we finished streaming just return
     return;
-  }
-  else //we stall
-  {
+  } else { //we stall
     //restart timer
     SchedulePlay(); // with default parm.
 
     //check if we should abort the download
-    if(requestedRepresentation != NULL && !m_hasDownloadedAllSegments && requestedRepresentation->GetDependencyId().size() > 0) // means we are downloading something with dependencies
-    {
+    if(requestedRepresentation != NULL && !m_hasDownloadedAllSegments && requestedRepresentation->GetDependencyId().size() > 0) { // means we are downloading something with dependencies
       //check buffer state
-      if(!mPlayer->GetAdaptationLogic()->hasMinBufferLevel(requestedRepresentation))
-      {
+      if(!mPlayer->GetAdaptationLogic()->hasMinBufferLevel(requestedRepresentation)) {
         //abort download ...
         NS_LOG_DEBUG("Aborting to download a segment with repId = " << requestedRepresentation->GetId().c_str());
         super::StopApplication();
@@ -714,74 +690,78 @@ void MultimediaConsumer<Parent>::DoPlay()
 template<class Parent>
 double MultimediaConsumer<Parent>::consume()
 {
-    unsigned int buffer_level = mPlayer->GetBufferLevel();
+  unsigned int buffer_level = mPlayer->GetBufferLevel();
 
+  // did we finish streaming yet?
+  if (buffer_level == 0 && m_hasDownloadedAllSegments == true)
+  {
+    NS_LOG_DEBUG("Multimedia Streaminig  Finished (Cur Buffer Level = " << buffer_level << ")");
+    return 0.0;
+  }
 
-    // did we finish streaming yet?
-    if (buffer_level == 0 && m_hasDownloadedAllSegments == true)
+  dash::player::MultimediaBuffer::BufferRepresentationEntry entry = mPlayer->ConsumeFromBuffer();
+  double consumedSeconds = entry.segmentDuration;
+
+  if ( consumedSeconds > 0)
+  {
+    NS_LOG_DEBUG("Cur Buffer Level = " << buffer_level << ", Consumed Segment " << entry.segmentNumber << ", with Rep " << entry.repId << " for " << entry.segmentDuration << " seconds");
+    int64_t freezeTime = 0;
+    if (!m_hasStartedPlaying)
     {
-        NS_LOG_DEBUG("Multimedia Streaminig  Finished (Cur Buffer Level = " << buffer_level << ")");
-        return 0.0;
+      // we havent started yet, so we can measure the start-up delay until now
+      m_hasStartedPlaying = true;
+      int64_t startUpDelay = Simulator::Now().GetMilliSeconds() - m_startTime;
+      // LOG STARTUP DELAY HERE
+      freezeTime = startUpDelay;
+      NS_LOG_DEBUG("Cur Buffer Level = " << buffer_level << ", started consuming ... (Start-Up Delay: " << startUpDelay << " milliseconds)");
+    }
+    else if (m_freezeStartTime != 0)
+    {
+      // we had a freeze/stall, but we can continue playing now
+      // measure:
+      freezeTime = (Simulator::Now().GetMilliSeconds() - m_freezeStartTime);
+      m_freezeStartTime = 0;
+      NS_LOG_DEBUG("Freeze Of " << freezeTime << " milliseconds is over!");
     }
 
-    dash::player::MultimediaBuffer::BufferRepresentationEntry entry = mPlayer->ConsumeFromBuffer();
-    double consumedSeconds = entry.segmentDuration;
+    //fprintf(stderr,  "Current Buffer Level: %f\n", mPlayer->GetBufferLevel());
+    m_playerTracer(this, m_userId, entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
+    freezeTime, (unsigned int) (mPlayer->GetBufferLevel()), entry.depIds);
 
-    if ( consumedSeconds > 0)
+
+    std::cout << Simulator::Now().GetSeconds() << " Client(" << super::node_id << ") " << entry.segmentDuration
+              << " " << buffer_level  << " " << entry.repId << " " << entry.experienced_bitrate_bit_s << '\n';
+
+    CalcQoE(entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s, freezeTime, buffer_level);
+    // getchar();
+
+    totalConsumedSegments++;
+    return consumedSeconds;
+  }
+  else
+  {
+
+    // could not consume, means buffer is empty
+    if (m_freezeStartTime == 0 && m_hasStartedPlaying == true)
     {
-        NS_LOG_DEBUG("Cur Buffer Level = " << buffer_level << ", Consumed Segment " << entry.segmentNumber << ", with Rep " << entry.repId << " for " << entry.segmentDuration << " seconds");
-        int64_t freezeTime = 0;
-        if (!m_hasStartedPlaying)
-        {
-            // we havent started yet, so we can measure the start-up delay until now
-            m_hasStartedPlaying = true;
-            int64_t startUpDelay = Simulator::Now().GetMilliSeconds() - m_startTime;
-            // LOG STARTUP DELAY HERE
-            freezeTime = startUpDelay;
-            NS_LOG_DEBUG("Cur Buffer Level = " << buffer_level << ", started consuming ... (Start-Up Delay: " << startUpDelay << " milliseconds)");
-        }
-        else if (m_freezeStartTime != 0)
-        {
-            // we had a freeze/stall, but we can continue playing now
-            // measure:
-            freezeTime = (Simulator::Now().GetMilliSeconds() - m_freezeStartTime);
-            m_freezeStartTime = 0;
-            NS_LOG_DEBUG("Freeze Of " << freezeTime << " milliseconds is over!");
-        }
-
-        //fprintf(stderr,  "Current Buffer Level: %f\n", mPlayer->GetBufferLevel());
-        m_playerTracer(this, m_userId, entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
-        freezeTime, (unsigned int) (mPlayer->GetBufferLevel()), entry.depIds);
-
-
-        totalConsumedSegments++;
-        return consumedSeconds;
+      // this actually means that we have a stall/free (m_hasStartedPlaying == false would mean that this is part of start up delay)
+      // set m_freezeStartTime
+      m_freezeStartTime = Simulator::Now().GetMilliSeconds();
     }
-    else
-    {
 
-        // could not consume, means buffer is empty
-        if (m_freezeStartTime == 0 && m_hasStartedPlaying == true)
-        {
-            // this actually means that we have a stall/free (m_hasStartedPlaying == false would mean that this is part of start up delay)
-            // set m_freezeStartTime
-            m_freezeStartTime = Simulator::Now().GetMilliSeconds();
-        }
-
-        // continue trying to consume... - these are unsmooth seconds
-        return 0.0; // default parameter
-    }
+    // continue trying to consume... - these are unsmooth seconds
+    return 0.0; // default parameter
+  }
 }
 
 //=======================================================================================
 // QoE Module
 //=======================================================================================
-
-  // std::cout << entry.segmentNumber << " " << entry.repId << " "
-  // << entry.experienced_bitrate_bit_s << " " << (unsigned int) (mPlayer->GetBufferLevel()) << '\n';
-  // CalcQoE(entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
-  //   0, (unsigned int) (mPlayer->GetBufferLevel()));
-  // getchar();
+// std::cout << entry.segmentNumber << " " << entry.repId << " "
+// << entry.experienced_bitrate_bit_s << " " << (unsigned int) (mPlayer->GetBufferLevel()) << '\n';
+// CalcQoE(entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
+//   0, (unsigned int) (mPlayer->GetBufferLevel()));
+// getchar();
 
 template<class Parent>
 double MultimediaConsumer<Parent>::RepresentationId (std::string repId)
@@ -789,25 +769,35 @@ double MultimediaConsumer<Parent>::RepresentationId (std::string repId)
   double result;
 
   if(repId == "1")
-    result = 235000;
+    // result = 235000;
+    result = 2.0080784877813134;
   if(repId == "2")
-    result = 385000;
+    // result = 385000;
+    result = 2.4642028273237346;
   if(repId == "3")
-    result = 560000;
+    // result = 560000;
+    result = 2.8555893268963084;
   if(repId == "4")
-    result = 750000;
+    // result = 750000;
+    result = 3.1407144755502414;
   if(repId == "10")
-    result = 1050000;
+    // result = 1050000;
+    result = 3.469111378492545;
   if(repId == "11")
     result = 1750000;
+    result = 3.967677187288152;
   if(repId == "20")
-    result = 3000000;
+    // result = 3000000;
+    result = 4.255401538543502;
   if(repId == "21")
-    result = 2350000;
+    // result = 2350000;
+    result = 4.4937377720032545;
   if(repId == "30")
-    result = 4300000;
+    // result = 4300000;
+    result = 4.845100440417908;
   if(repId == "31")
-    result = 5800000;
+    // result = 5800000;
+    result = 5.137161505794297;
 
     return result;
 }
@@ -815,25 +805,24 @@ double MultimediaConsumer<Parent>::RepresentationId (std::string repId)
 template<class Parent>
 double MultimediaConsumer<Parent>::CalcQoE(unsigned int segmentNr, std::string representationId, unsigned int segmentExperiencedBitrate, unsigned int stallingTime, unsigned int bufferLevel)
 {
-  double video_quality = RepresentationId(representationId)/5800000;
+  double video_quality = RepresentationId(representationId);
 
   sum_video_quality += video_quality;
+  sum_stall += stallingTime*0.001;
 
-  if(video_quality_1 != 0)
+  sum_qoe = sum_video_quality/(segmentNr+1) - sum_stall/(segmentNr+1);
+
+  if (segmentNr != 0) {
     sum_switch_quality += video_quality - video_quality_1 ;
-
-  sum_stall += stallingTime;
-
-  sum_qoe += sum_video_quality/(segmentNr+1) + sum_switch_quality/(segmentNr) + sum_stall/(segmentNr+1);
+    sum_qoe += sum_switch_quality/(segmentNr);
+  }
 
   video_quality_1 = video_quality;
-
   std::cout << "segmentNr=" << segmentNr << " sum_qoe=" << sum_qoe << std::endl;
-  // if (segmentNr > 10 && ) {
+  // if (segmentNr > 15 && sum_qoe < 4.0) {
+    super::AgentDoSend(super::gta_socket, 1200, sum_qoe);
   // }
   return 0.0;
 }
-
-
 
 } // namespace ns3

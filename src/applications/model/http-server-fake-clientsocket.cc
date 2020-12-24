@@ -187,7 +187,7 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
 	// now parse this request (TODO) and reply
 	std::string filename = m_content_dir  + ParseHTTPHeader(data);
 
-	fprintf(stderr, "Server(%ld): Opening '%s'\n", m_socket_id, filename.c_str());
+	// fprintf(stderr, "Server(%ld): Opening '%s'\n", m_socket_id, filename.c_str());
 
 	long filesize = GetFileSize(filename);
 
@@ -223,7 +223,7 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
 		{
 			// handle virtual payload
 			// fill tmp with some random data
-			fprintf(stderr, "Server(%ld): Generating virtual payload of size %ld ...\n", m_socket_id, filesize);
+			// fprintf(stderr, "Server(%ld): Generating virtual payload of size %ld ...\n", m_socket_id, filesize);
 
 
 			this->m_totalBytesToTx += filesize;
@@ -261,7 +261,7 @@ HttpServerFakeClientSocket::HandleReadyToTransmit(Ptr<Socket> socket, uint32_t t
 
 	if (m_totalBytesToTx == 0) // do nothing
 	{
-		fprintf(stderr, "Server(%ld)::HandleReadyToTransmit: Nothing to transmit (yet)...\n", m_socket_id);
+		// fprintf(stderr, "Server(%ld)::HandleReadyToTransmit: Nothing to transmit (yet)...\n", m_socket_id);
 		return;
 	}
 	if (m_currentBytesTx >= m_totalBytesToTx && m_totalBytesToTx > 0)
@@ -271,7 +271,7 @@ HttpServerFakeClientSocket::HandleReadyToTransmit(Ptr<Socket> socket, uint32_t t
 		{
 			if (!m_is_shutdown)
 			{
-				fprintf(stderr, "Server(%ld)::HandleReadyToTransmit: Sent %d bytes, now shutting down client socket (socket->close())\n", m_socket_id, m_currentBytesTx);
+				// fprintf(stderr, "Server(%ld)::HandleReadyToTransmit: Sent %d bytes, now shutting down client socket (socket->close())\n", m_socket_id, m_currentBytesTx);
 
 				// Request this socket to close
 				socket->Close();

@@ -428,8 +428,8 @@ DASHFakeServerApplication::ConnectionAccepted (Ptr<Socket> socket, const Address
     socket->SetRecvCallback (MakeCallback (&HttpServerFakeVirtualClientSocket::HandleIncomingData, m_activeClients[socket_id]));
 
 
-    socket->TraceConnectWithoutContext ("State",
-                               MakeCallback(&HttpServerFakeVirtualClientSocket::LogStateChange, m_activeClients[socket_id]));
+    // socket->TraceConnectWithoutContext ("State",
+    //                            MakeCallback(&HttpServerFakeVirtualClientSocket::LogStateChange, m_activeClients[socket_id]));
 
     socket->SetCloseCallbacks (MakeCallback (&HttpServerFakeVirtualClientSocket::ConnectionClosedNormal, m_activeClients[socket_id]),
                                MakeCallback (&HttpServerFakeVirtualClientSocket::ConnectionClosedError,  m_activeClients[socket_id]));

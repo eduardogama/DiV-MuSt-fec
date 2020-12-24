@@ -42,7 +42,7 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
 	// now parse this request (TODO) and reply
 	std::string filename = m_content_dir  + ParseHTTPHeader(data);
 
-	fprintf(stderr, "VirtualServer(%ld): Request Opening '%s'\n", m_socket_id, filename.c_str());
+	// fprintf(stderr, "VirtualServer(%ld): Request Opening '%s'\n", m_socket_id, filename.c_str());
 
 	long filesize = GetFileSize(filename);
 
@@ -73,7 +73,7 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
 		{
 			// handle virtual payload
 			// fill tmp with some random data
-			fprintf(stderr, "VirtualServer(%ld): Generating virtual payload with size %ld ...\n", m_socket_id, filesize);
+			// fprintf(stderr, "VirtualServer(%ld): Generating virtual payload with size %ld ...\n", m_socket_id, filesize);
 			for (int i = 0; i < 4096; i++)
 			{
 				tmp[i] = (uint8_t)rand();
