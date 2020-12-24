@@ -86,6 +86,10 @@ public:
   StopApplication();
 
 
+  bool isNumber(const std::string& str);
+  std::vector<std::string> split(const std::string& str, char delim);
+  bool validateIP(std::string ip);
+
 protected:
   virtual void
   OnFileReceived(unsigned status, unsigned length);
